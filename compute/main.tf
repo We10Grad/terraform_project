@@ -18,68 +18,66 @@ data "aws_ami" "ubuntu" {
 
 # Create an EC2 instance that runs a simple web server
 resource "aws_instance" "example" {
-  ami             = data.aws_ami.ubuntu.id
-  instance_type   = "t2.micro"
-  user_data       = <<-EOF
-              #!/bin/bash
-              sudo apt-get update -y
-              sudo apt-get install nginx -y
-              echo "Hello, World!" > /var/www/html/index.html
-              systemctl start nginx
-              systemctl enable nginx
-              EOF
-  security_groups = [aws_security_group.terraform_project_sg.name]
-  key_name        = aws_key_pair.terraform_project_key.key_name
+  ami             = var.ami_id
+  instance_type   = var.instance_type
+  user_data       = var.user_data
+  security_groups = var.security_group_ids
+  key_name        = var.key_name
 
   tags = {
     Name = "TerraformExampleInstance"
   }
 }
 
-# Create a security group that allows HTTP and SSH inbound traffic and all outbound traffic
-resource "aws_security_group" "terraform_project_sg" {
-  name        = "terraform_project_sg"
-  description = "Allow HTTP and SSH inbound traffic and all outbound traffic"
+# Create a launch configuration for the Auto Scaling group
+resource "aws_placement_group" "test" {
+  name     = "test"
+  strategy = "cluster"
+}
 
-  tags = {
-    Name = "terraform_project_sg"
+resource "aws_autoscaling_group" "bar" {
+  name                      = "terraform_project_asg"
+  max_size                  = 5
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+  placement_group           = aws_placement_group.test.id
+  launch_configuration      = aws_launch_configuration.foobar.name
+  vpc_zone_identifier       = [aws_subnet.example1.id, aws_subnet.example2.id]
+
+  instance_maintenance_policy {
+    min_healthy_percentage = 90
+    max_healthy_percentage = 120
   }
-}
 
-resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
-  security_group_id = aws_security_group.terraform_project_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  ip_protocol       = "tcp"
-  to_port           = 80
-}
+  initial_lifecycle_hook {
+    name                 = "foobar"
+    default_result       = "CONTINUE"
+    heartbeat_timeout    = 2000
+    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
 
-resource "aws_vpc_security_group_ingress_rule" "allow_ssh_ipv4" {
-  security_group_id = aws_security_group.terraform_project_sg.id
-  cidr_ipv4         = "73.228.206.20/32"
-  from_port         = 22
-  ip_protocol       = "tcp"
-  to_port           = 22
-}
+    notification_metadata = jsonencode({
+      foo = "bar"
+    })
 
-resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
-  security_group_id = aws_security_group.terraform_project_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "-1" # semantically equivalent to all ports
-}
+    notification_target_arn = "arn:aws:sqs:us-east-1:444455556666:queue1*"
+    role_arn                = "arn:aws:iam::123456789012:role/S3Access"
+  }
 
-# Create an SSH key pair to access the EC2 instance
-resource "aws_key_pair" "terraform_project_key" {
-  key_name   = "terraform_project_key"
-  public_key = file("~/.ssh/aws_terraform_key.pub")
-}
+  tag {
+    key                 = "foo"
+    value               = "bar"
+    propagate_at_launch = true
+  }
 
-output "instance_id" {
-  description = "ID of the EC2 instance"
-  value       = aws_instance.example.id
-}
+  timeouts {
+    delete = "15m"
+  }
 
-output "instance_ip" {
-  description = "Private IP address of the EC2 instance"
-  value       = aws_instance.example.private_ip
+  tag {
+    key                 = "lorem"
+    value               = "ipsum"
+    propagate_at_launch = false
+  }
 }
