@@ -86,27 +86,29 @@ resource "aws_internet_gateway" "Project_IGW" {
 }
 
 # Create Route table associations
-resource "aws_route_table_association" "a" {
+resource "aws_route_table_association" "pub_assoc_1" {
   subnet_id      = aws_subnet.public_subnet_1.id
   route_table_id = aws_route_table.public_route_1.id
 }
 
-resource "aws_route_table_association" "b" {
+resource "aws_route_table_association" "pub_assoc_2" {
   subnet_id      = aws_subnet.public_subnet_2.id
   route_table_id = aws_route_table.public_route_1.id
 }
 
-resource "aws_route_table_association" "c" {
+resource "aws_route_table_association" "pub_assoc_3" {
   subnet_id      = aws_subnet.public_subnet_3.id
   route_table_id = aws_route_table.public_route_1.id
 }
 
-resource "aws_route_table_association" "d" {
+resource "aws_route_table_association" "priv_assoc_1" {
   subnet_id      = aws_subnet.private_subnet_1.id
   route_table_id = aws_route_table.private_route_1.id
+}
 
-  resource "aws_route_table_association" "e" {
+resource "aws_route_table_association" "priv_assoc_2" {
   subnet_id      = aws_subnet.private_subnet_2.id
   route_table_id = aws_route_table.private_route_1.id
+  }
 
 # Security Groups
